@@ -81,6 +81,9 @@ class DecomposeDispatch(object):
     def Pow(self, node: NodeProto, graph: GraphProto, **kwargs):
         return self._decompose_elementwise_precision(node, graph, **kwargs)
 
+    def Sqrt(self, node: NodeProto, graph: GraphProto, **kwargs):
+        return self._decompose_elementwise_precision(node, graph, **kwargs)
+
     def LayerNormalization(self, node: NodeProto, graph: GraphProto, **kwargs):
         node_name = node.name
         x = node.input[0]
