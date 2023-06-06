@@ -38,7 +38,7 @@ class GreedySearchGpt : public GreedySearchBase<T, ParametersT> {
                   ParametersT& params,
                   const GenerationDeviceHelper::CreateGptInputsFunc& create_inputs_func,
                   const GenerationDeviceHelper::AddToFeedsFunc& add_to_feeds_func,
-                  const GenerationDeviceHelper::ReorderPastStateFunc& reorder_past_state_func,
+                  const GenerationDeviceHelper::OptionalReorderPastStateFunc& reorder_past_state_func,
                   const GenerationDeviceHelper::TopkFunc& topk_func,
                   const GenerationDeviceHelper::GreedySearchProcessLogitsFunc<T>& process_logits_func,
                   const GenerationDeviceHelper::InitGreedyStateFunc<T>& init_greedy_state_func,
@@ -104,7 +104,7 @@ class GreedySearchGpt : public GreedySearchBase<T, ParametersT> {
   GenerationDeviceHelper::CreateGptInputsFunc create_inputs_func_;
   GenerationDeviceHelper::AddToFeedsFunc add_to_feeds_func_;
   GenerationDeviceHelper::InitGreedyStateFunc<T> init_greedy_state_func_;
-  GenerationDeviceHelper::ReorderPastStateFunc reorder_past_state_func_;
+  GenerationDeviceHelper::OptionalReorderPastStateFunc reorder_past_state_func_;
   GenerationDeviceHelper::UpdateGptFeedsFunc<T> update_feeds_func_;
 
   const void* cuda_device_prop_ = nullptr;
@@ -331,7 +331,7 @@ Status GreedySearchGpt<T, ParametersT>::Execute(const FeedsFetchesManager* init_
 
     // Reorder past state after first run if the GPT subgraph (the one used after the first iteration)
     // contains DecoderMaskedSelfAttention nodes
-    if (iteration_counter == 1 && gpt_subgraph_.has_decoder_masked_attention_) {
+    if (reorder_past_state_func_.has_value() && iteration_counter == 1 && gpt_subgraph_.has_decoder_masked_attention_) {
       size_t offset = static_cast<size_t>(gpt_subgraph_.GetFirstPresentOutputIndex());
       // We will use the same staging buffer while transposing all the layers' past state
       // and this is okay because we use the same stream to do the staging copy and the transpose
@@ -339,10 +339,10 @@ Status GreedySearchGpt<T, ParametersT>::Execute(const FeedsFetchesManager* init_
       // If we ever do them in different streams, we must use different staging buffers to avoid data
       // races.
       for (size_t i = 0; i < static_cast<size_t>(gpt_subgraph_.num_layers); ++i) {
-        ORT_RETURN_IF_ERROR(reorder_past_state_func_(cuda_device_prop_,
-                                                     *fetches[offset + i].GetMutable<Tensor>(),
-                                                     greedy_state.staging_for_past_state_reorder,
-                                                     this->ort_stream_));
+        ORT_RETURN_IF_ERROR((*reorder_past_state_func_)(cuda_device_prop_,
+                                                        *fetches[offset + i].GetMutable<Tensor>(),
+                                                        greedy_state.staging_for_past_state_reorder,
+                                                        this->ort_stream_));
       }
     }
 

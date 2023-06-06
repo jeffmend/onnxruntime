@@ -27,8 +27,8 @@ class BeamSearchT5 : public BeamSearchBase<T> {
                IConsoleDumper* cuda_dumper,
                BeamSearchParameters& params,
                const GenerationDeviceHelper::AddToFeedsFunc& add_to_feeds_func,
-               const GenerationDeviceHelper::ReorderPastStateFunc& reorder_past_state_func,
-               const GenerationDeviceHelper::InitCacheIndirFunc& init_cache_indir_func,
+               const GenerationDeviceHelper::OptionalReorderPastStateFunc& reorder_past_state_func,
+               const GenerationDeviceHelper::OptionalInitCacheIndirFunc& init_cache_indir_func,
                const GenerationDeviceHelper::TopkFunc& topk_func,
                const GenerationDeviceHelper::ProcessLogitsFunc<T>& process_logits_func,
                const GenerationDeviceHelper::InitBeamStateFunc<T>& init_beam_state_func,
@@ -80,8 +80,8 @@ class BeamSearchT5 : public BeamSearchBase<T> {
   // Device specific functions
   GenerationDeviceHelper::AddToFeedsFunc add_to_feeds_func_;
   GenerationDeviceHelper::InitBeamStateFunc<T> init_beam_state_func_;
-  GenerationDeviceHelper::ReorderPastStateFunc reorder_past_state_func_;
-  GenerationDeviceHelper::InitCacheIndirFunc init_cache_indir_func_;
+  GenerationDeviceHelper::OptionalReorderPastStateFunc reorder_past_state_func_;
+  GenerationDeviceHelper::OptionalInitCacheIndirFunc init_cache_indir_func_;
   GenerationDeviceHelper::CreateEncoderInputsFunc create_encoder_inputs_func_;
   GenerationDeviceHelper::UpdateDecoderFeedsFunc<T> update_decoder_feeds_func_;
   GenerationDeviceHelper::ExpandBufferFunc<int32_t> expand_buffer_int32_func_;
@@ -259,15 +259,19 @@ Status BeamSearchT5<T>::Execute(const FeedsFetchesManager& encoder_feeds_fetches
       auto cross_attention_past_key_sz = first_cross_attention_key->Shape().Size();
       beam_state.EnsurePastStateReorderStagingBuffer(this->temp_space_allocator_, cross_attention_past_key_sz);
 
-      // Here we only need to reorder the past key for self-attention and cross-attention.
-      for (size_t i = 0; i < 2 * static_cast<size_t>(decoder_subgraph_.num_layers); ++i) {
-        ORT_RETURN_IF_ERROR(reorder_past_state_func_(cuda_device_prop_,
-                                                     *decoder_feeds[offset + 2 * i].GetMutable<Tensor>(),
-                                                     beam_state.staging_for_past_state_reorder,
-                                                     this->ort_stream_));
+      if (reorder_past_state_func_.has_value()) {
+        // Here we only need to reorder the past key for self-attention and cross-attention.
+        for (size_t i = 0; i < 2 * static_cast<size_t>(decoder_subgraph_.num_layers); ++i) {
+          ORT_RETURN_IF_ERROR((*reorder_past_state_func_)(cuda_device_prop_,
+                                                          *decoder_feeds[offset + 2 * i].GetMutable<Tensor>(),
+                                                          beam_state.staging_for_past_state_reorder,
+                                                          this->ort_stream_));
+        }
       }
-      size_t cache_indir_input_offset = static_cast<size_t>(decoder_subgraph_.GetFirstPastInputIndex()) + 4 * static_cast<size_t>(decoder_subgraph_.num_layers) + 2;
-      ORT_RETURN_IF_ERROR(init_cache_indir_func_(*decoder_feeds[cache_indir_input_offset].GetMutable<Tensor>(), this->ort_stream_));
+      if (init_cache_indir_func_.has_value()) {
+        size_t cache_indir_input_offset = static_cast<size_t>(decoder_subgraph_.GetFirstPastInputIndex()) + 4 * static_cast<size_t>(decoder_subgraph_.num_layers) + 2;
+        ORT_RETURN_IF_ERROR((*init_cache_indir_func_)(*decoder_feeds[cache_indir_input_offset].GetMutable<Tensor>(), this->ort_stream_));
+      }
     }
   }
 

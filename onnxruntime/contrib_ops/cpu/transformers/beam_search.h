@@ -46,8 +46,8 @@ class BeamSearch : public IControlFlowKernel {
 
   // device helpers that is same for both GPT and encoder-decoder models.
   void SetDeviceHelpers(
-      const GenerationDeviceHelper::ReorderPastStateFunc& reorder_past_state_func,
-      const GenerationDeviceHelper::InitCacheIndirFunc& init_cache_indir_func,
+      const GenerationDeviceHelper::OptionalReorderPastStateFunc& reorder_past_state_func,
+      const GenerationDeviceHelper::OptionalInitCacheIndirFunc& init_cache_indir_func,
       const GenerationDeviceHelper::AddToFeedsFunc& add_to_feeds_func,
       const GenerationDeviceHelper::TopkFunc& topk_func,
       const GenerationDeviceHelper::DeviceCopyFunc<float>& device_copy_func,
@@ -94,8 +94,8 @@ class BeamSearch : public IControlFlowKernel {
 
  private:
   // Device specific functions
-  GenerationDeviceHelper::ReorderPastStateFunc reorder_past_state_func_;
-  GenerationDeviceHelper::InitCacheIndirFunc init_cache_indir_func_;
+  GenerationDeviceHelper::OptionalReorderPastStateFunc reorder_past_state_func_;
+  GenerationDeviceHelper::OptionalInitCacheIndirFunc init_cache_indir_func_;
   GenerationDeviceHelper::AddToFeedsFunc add_to_feeds_func_;
   GenerationDeviceHelper::TopkFunc topk_func_;
   GenerationDeviceHelper::DeviceCopyFunc<float> device_copy_func_;

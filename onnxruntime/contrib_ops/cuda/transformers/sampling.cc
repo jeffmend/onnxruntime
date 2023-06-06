@@ -32,7 +32,11 @@ transformers::CudaTensorConsoleDumper g_cuda_dumper_sampling;
 
 Sampling::Sampling(const OpKernelInfo& info)
     : onnxruntime::contrib::transformers::Sampling(info) {
+#ifdef USE_ROCM
+  SetDeviceHelpers(absl::nullopt,
+#else
   SetDeviceHelpers(GenerationCudaDeviceHelper::ReorderPastState,
+#endif
                    GenerationCudaDeviceHelper::AddToFeeds,
                    GenerationCudaDeviceHelper::TopK,
                    GenerationCudaDeviceHelper::DeviceCopy<float>,
