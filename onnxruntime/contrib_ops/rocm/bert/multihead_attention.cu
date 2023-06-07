@@ -17,7 +17,7 @@ namespace onnxruntime {
 namespace contrib {
 namespace rocm {
 
-#define REGISTER_KERNEL_TYPED(T)                                  \
+#define REGISTER_MHA_KERNEL_TYPED(T)                              \
   ONNX_OPERATOR_TYPED_KERNEL_EX(                                  \
       MultiHeadAttention,                                         \
       kMSDomain,                                                  \
@@ -26,14 +26,45 @@ namespace rocm {
       kRocmExecutionProvider,                                     \
       (*KernelDefBuilder::Create())                               \
           .TypeConstraint("T", DataTypeImpl::GetTensorType<T>()), \
-      MultiHeadAttention<T>);
+      MultiHeadAttention<T>)
 
-REGISTER_KERNEL_TYPED(float)
-REGISTER_KERNEL_TYPED(MLFloat16)
+REGISTER_MHA_KERNEL_TYPED(float);
+REGISTER_MHA_KERNEL_TYPED(MLFloat16);
+
+static constexpr int kPastSequenceLengthInputIndex = 7;
+static constexpr int kBeamWidthInputIndex = 8;
+static constexpr int kPastInputIndex = 5;
+static constexpr int kPresentOutputIndex = 1;
+
+#define REGISTER_DMMHA_KERNEL_TYPED(T)                                        \
+  ONNX_OPERATOR_TYPED_KERNEL_EX(                                              \
+      DecoderMaskedMultiHeadAttention,                                        \
+      kMSDomain,                                                              \
+      1,                                                                      \
+      T,                                                                      \
+      kRocmExecutionProvider,                                                 \
+      (*KernelDefBuilder::Create())                                           \
+          .MayInplace(kPastInputIndex, kPresentOutputIndex)                   \
+          .MayInplace(kPastInputIndex + 1, kPresentOutputIndex + 1)           \
+          .TypeConstraint("T", DataTypeImpl::GetTensorType<T>())              \
+          .InputMemoryType(OrtMemTypeCPUInput, kPastSequenceLengthInputIndex) \
+          .InputMemoryType(OrtMemTypeCPUInput, kBeamWidthInputIndex),         \
+      MultiHeadAttention<T>)
+
+REGISTER_DMMHA_KERNEL_TYPED(float);
+REGISTER_DMMHA_KERNEL_TYPED(MLFloat16);
 
 template <typename T>
 MultiHeadAttention<T>::MultiHeadAttention(const OpKernelInfo& info)
     : RocmKernel(info) {
+  if (info.node().OpType() == "MultiHeadAttention") {
+    attn_type_ = MHA;
+  } else if (info.node().OpType() == "DecoderMaskedMultiHeadAttention") {
+    attn_type_ = DMMHA;
+  } else {
+    ORT_THROW("unreachable");
+  }
+
   int64_t num_heads = 0;
   ORT_ENFORCE(info.GetAttr("num_heads", &num_heads).IsOK() && num_heads > 0);
   num_heads_ = static_cast<int>(num_heads);
@@ -75,6 +106,11 @@ Status MultiHeadAttention<T>::ComputeInternal(OpKernelContext* context) const {
           num_heads_, mask_filter_value_, scale_,
           false, false, device_prop.maxThreadsPerBlock));
 
+  if (attn_type_ == DMMHA && attn.sequence_length != 1) {
+    return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT,
+                           "Input sequence length should be 1 to use DecoderMaskedMultiHeadAttention");
+  }
+
   TensorShapeVector output_shape(3);
   output_shape[0] = static_cast<int64_t>(attn.batch_size);
   output_shape[1] = static_cast<int64_t>(attn.sequence_length);
@@ -92,7 +128,7 @@ Status MultiHeadAttention<T>::ComputeInternal(OpKernelContext* context) const {
   Tensor* present_value = context->Output(2, present_shape);
 
   ORT_RETURN_IF_ERROR(ClassifyAttentionMode(
-      Node().OpType(), &attn,
+      attn_type_, &attn,
       /*qkv=*/{query, key, value},
       /*past=*/{past_key, past_value},
       /*present=*/{present_key, present_value}));
@@ -115,7 +151,7 @@ Status MultiHeadAttention<T>::ComputeInternal(OpKernelContext* context) const {
 
     int4 add_shape;
     Strides add_src_strides;
-    const HipT* add_key_src =reinterpret_cast<const HipT*>(key->DataRaw());
+    const HipT* add_key_src = reinterpret_cast<const HipT*>(key->DataRaw());
     const HipT* add_value_src = reinterpret_cast<const HipT*>(value->DataRaw());
     HipT* add_key_dst;
     HipT* add_value_dst;
