@@ -401,9 +401,9 @@ def _matmul_internal(a, b, out, **kwargs):
     assert rank_a == 2 or rank_b == 2 or a.shape[:-2] == b.shape[:-2]
     batch_shape = a.shape[:-2] if rank_a >= 3 else b.shape[:-2]
     if out is None:
-        out = torch.empty(batch_shape + (m, n), dtype=a.dtype, device=a.device)
+        out = torch.empty((*batch_shape, m, n), dtype=a.dtype, device=a.device)
     else:
-        assert out.shape == batch_shape + (m, n)
+        assert out.shape == (*batch_shape, m, n)
     batch = math.prod(batch_shape)
     dtype = a.dtype
     if batch == 1 or (rank_a >= 3 and not trans_a and rank_b == 2):

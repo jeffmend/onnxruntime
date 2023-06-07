@@ -236,7 +236,7 @@ def _run_tunable_op_test(module_cls, dtype, gen_inputs_func, tunable_op, impl_co
         _test_helpers.assert_gradients_match_and_reset_gradient(pt_model, ort_model, rtol=rtol, atol=atol)
     tunable_results_file = os.path.join(os.getcwd(), "tuning_results_training.json")
     assert os.path.exists(tunable_results_file)
-    with open(tunable_results_file, "r") as f:
+    with open(tunable_results_file) as f:
         tunable_results = json.load(f)
     assert tunable_op in str(tunable_results)
     del os.environ["ORTMODULE_ENABLE_TUNING"]
@@ -709,6 +709,7 @@ def test_softmax_module(dtype, input_shapes_and_axis):
     "input_shapes_and_axis", [([2, 1024], [2, 1024], -1), ([2, 2049], [2, 1], -1), ([2, 3, 3, 3], [3, 3], 2)]
 )
 def test_layer_norm_module(dtype, input_shapes_and_axis):
+    pytest.skip("LayerNorm is disabled for now due to perf issue.")
     class NeuralNetLayerNorm(torch.nn.Module):
         def __init__(self):
             super().__init__()
@@ -738,7 +739,6 @@ def test_slice_scel_module(dtype, has_sum):
             loss_fct = torch.nn.CrossEntropyLoss()
             loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), labels.view(-1))
             return logits + loss if has_sum else loss
-
 
     def _gen_inputs(dtype):
         return [

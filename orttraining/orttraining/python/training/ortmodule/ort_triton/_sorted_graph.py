@@ -17,7 +17,7 @@ from ._op_config import is_elementwise_node
 from ._utils import get_attribute, to_numpy_array, topological_sort
 
 
-class SortedGraph(object):
+class SortedGraph:
     """
     This class is used to
         1. decompose complex operators into preliminary operators,

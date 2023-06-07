@@ -254,7 +254,7 @@ def transform_slice_scel(graph):
         # Weight input not supported for now, support reduction=mean only for now.
         # It's required that the output_type is same as the logit dtype because currently we cannot pass the attribute
         # value from TritonOp. We can add support of this in the future.
-        if len(node.input) > 2 and node.input[2] != "":
+        if len(node.input) > 2 and node.input[2]:
             continue
         reduction_attr = get_attribute(node, "reduction", "mean")
         if isinstance(reduction_attr, bytes):
@@ -302,7 +302,7 @@ def transform_slice_scel(graph):
                 bias_arg = sum_node.input[0] if sum_node.input[1] == slice_grad.output[0] else sum_node.input[1]
         sub_graph_nodes = [node, reshape0, slice0, reshape1, slice1, scel_grad, reshape2, slice_grad, shape_node]
         _get_shape_related_nodes(graph, slice0.output[0], sub_graph_nodes)
-        if bias_arg != "":
+        if bias_arg:
             sub_graph_nodes.append(sum_node)
         remove_nodes.extend(sub_graph_nodes)
         forward_inputs = [slice0.input[0], slice1.input[0]]
@@ -337,7 +337,7 @@ def transform_slice_scel(graph):
             func_name="triton_slice_scel",
         )
         triton_nodes.append(triton_fw_node)
-        backward_outputs = [sum_node.output[0] if bias_arg != "" else slice_grad.output[0]]
+        backward_outputs = [sum_node.output[0] if bias_arg else slice_grad.output[0]]
         triton_bw_node = helper.make_node(
             "TritonOp",
             [scel_grad.input[0], log_prob_arg.name, slice1.input[0], factor_arg.name, bias_arg],

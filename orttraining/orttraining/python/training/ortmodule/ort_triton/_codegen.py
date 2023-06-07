@@ -316,7 +316,7 @@ class TritonCodegen(NodeVisitor):
         if len(masks) > 0:
             masks_str = " & ".join(masks)
             src_code += (
-                f"{space_indent}{input_var_name} = " f"tl.where({masks_str}, {input_var_name}, {node.default_value})\n"
+                f"{space_indent}{input_var_name} = tl.where({masks_str}, {input_var_name}, {node.default_value})\n"
             )
         src_code += f"{space_indent}{output_var_name} = {node.triton_func}({input_var_name}, axis=1)[:, None]\n"
         return src_code
@@ -332,7 +332,7 @@ class TritonCodegen(NodeVisitor):
                 f"tl.zeros([XBLOCK, RBLOCK], tl.float32) + {reduce_node.default_value}\n"
             )
         src_code += (
-            f"{space_indent}for roffset in range(0, rnumel, RBLOCK):\n" f"{space_indent}    rindex = rbase + roffset\n"
+            f"{space_indent}for roffset in range(0, rnumel, RBLOCK):\n{space_indent}    rindex = rbase + roffset\n"
         )
         if offset_calc.requires_r_mask:
             src_code += f"{space_indent}    rmask = rindex < rnumel\n"
@@ -360,7 +360,7 @@ class TritonCodegen(NodeVisitor):
             output_var_name = context.get_internal_variable_name(reduce_node.outputs[0].name)
             tmp_output_var_name = "tmp_" + output_var_name
             if reduce_node.op_type == "ReduceSum":
-                if masks_str == "":
+                if not masks_str:
                     src_code += f"{space_indent}{tmp_output_var_name} = {tmp_output_var_name} + {input_var_name}\n"
                 else:
                     src_code += (

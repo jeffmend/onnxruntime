@@ -22,7 +22,6 @@ GemmParams<T>::GemmParams(int m, int n, int k, bool trans_a, bool trans_b, float
       gemm_kernel_(gemm_kernel),
       ctx_(ctx),
       OpParams(gemm_kernel->GetTuningContext(), gemm_kernel->Stream(ctx)) {
-  const auto* x = ctx->Input<Tensor>(0);
   const auto* b = ctx->Input<Tensor>(2);
   bm_ = gsl::narrow_cast<int>(beta_ == 0.0f ? 0 : (b->Shape().NumDimensions() > 1 ? b->Shape()[0] : 1));
   bn_ = gsl::narrow_cast<int>(
@@ -31,6 +30,7 @@ GemmParams<T>::GemmParams(int m, int n, int k, bool trans_a, bool trans_b, float
           : (b->Shape().NumDimensions() > 1 ? b->Shape()[1] : (b->Shape().NumDimensions() > 0 ? b->Shape()[0] : 1)));
 
 #ifdef ENABLE_TRITON
+  const auto* x = ctx->Input<Tensor>(0);
   has_triton_support_ = contrib::IsTritonOpExecutorInitialized() &&
                         (std::is_same<T, MLFloat16>::value || std::is_same<T, float>::value) &&
                         x->Shape().NumDimensions() > 1;
