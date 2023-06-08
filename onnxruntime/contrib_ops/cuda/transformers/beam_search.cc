@@ -38,9 +38,11 @@ transformers::CudaTensorConsoleDumper g_cuda_dumper;
 BeamSearch::BeamSearch(const OpKernelInfo& info)
     : onnxruntime::contrib::transformers::BeamSearch(info) {
 #ifdef USE_ROCM
-  SetDeviceHelpers(absl::nullopt,
-                   absl::nullopt,
+std::cout << __FILE__ ": good " << __LINE__ << std::endl;
+  SetDeviceHelpers(std::nullopt,
+                   std::nullopt,
 #else
+std::cout << __FILE__ ": fuck " << __LINE__ << std::endl;
   SetDeviceHelpers(GenerationCudaDeviceHelper::ReorderPastState,
                    GenerationCudaDeviceHelper::InitCacheIndir,
 #endif

@@ -57,11 +57,13 @@ class BeamSearchWhisper : public BeamSearchBase<T> {
         cuda_device_prop_(cuda_device_prop),
         cuda_device_arch_(cuda_device_arch) {
     if (decoder_subgraph_.has_decoder_masked_attention_) {
+#ifndef USE_ROCM
       ORT_ENFORCE(cuda_device_arch_ >= 530,
                   "Decoder masked multihead attention can only be used on "
                   "GPU cards of compute capability 5.3 or higher. "
                   "This card has compute capability ",
                   cuda_device_arch_);
+#endif
     }
   }
 
@@ -145,6 +147,7 @@ Status BeamSearchWhisper<T>::Execute(const FeedsFetchesManager& encoder_feeds_fe
       decoder_input_ids,
       this->ort_stream_));
 
+std::cout << __FILE__ ":" << __LINE__ << std::endl;
 #ifdef DEBUG_NODE_INPUTS_OUTPUTS
   const_cast<SessionState&>(this->encoder_session_state_).IncrementGraphExecutionCounter();
 #endif
@@ -158,6 +161,7 @@ Status BeamSearchWhisper<T>::Execute(const FeedsFetchesManager& encoder_feeds_fe
                                              this->context_.Logger(),
                                              this->ort_stream_));
 
+std::cout << __FILE__ ":" << __LINE__ << std::endl;
 #ifdef DEBUG_GENERATION
   const IConsoleDumper* dumper = this->GetConsoleDumper();
   for (int i = 0; i < this->encoder_subgraph_.num_subgraph_inputs; i++) {
@@ -202,6 +206,7 @@ Status BeamSearchWhisper<T>::Execute(const FeedsFetchesManager& encoder_feeds_fe
 
   std::vector<OrtValue> decoder_fetches;
 
+std::cout << __FILE__ ":" << __LINE__ << std::endl;
   if (current_length + 1 < parameters->max_length) {
     ++iteration_counter;
     ORT_RETURN_IF_ERROR(this->GenerateNextToken(encoder_fetches[0],
@@ -212,6 +217,7 @@ Status BeamSearchWhisper<T>::Execute(const FeedsFetchesManager& encoder_feeds_fe
                                                 iteration_counter));
     ++current_length;  // Increase sequence length after a new token is generated.
 
+std::cout << __FILE__ ":" << __LINE__ << std::endl;
     ORT_RETURN_IF_ERROR(decoder_subgraph_.CreateInitialFeeds(this->cpu_allocator_,
                                                              ReinterpretAsSpan<const int32_t>(beam_next_tokens),
                                                              this->implicit_inputs_,
@@ -229,6 +235,7 @@ Status BeamSearchWhisper<T>::Execute(const FeedsFetchesManager& encoder_feeds_fe
                                                              parameters->max_length,
                                                              decoder_subgraph_.has_decoder_masked_attention_));
 
+std::cout << __FILE__ ":" << __LINE__ << std::endl;
     if (decoder_subgraph_.past_present_share_buffer_) {
       decoder_fetches.reserve(static_cast<int64_t>(decoder_subgraph_.GetFirstPresentOutputIndex()) + 2 * static_cast<int64_t>(decoder_subgraph_.num_layers));
       decoder_fetches.resize(decoder_subgraph_.GetFirstPresentOutputIndex(), OrtValue());
@@ -243,6 +250,7 @@ Status BeamSearchWhisper<T>::Execute(const FeedsFetchesManager& encoder_feeds_fe
       }
     }
 
+std::cout << __FILE__ ":" << __LINE__ << std::endl;
     if (decoder_subgraph_.has_decoder_masked_attention_) {
       size_t offset = static_cast<size_t>(decoder_subgraph_.GetFirstPastInputIndex());
       // Need to check cross attention's past key tensor size, suppose all layers cross attention key size are same
@@ -251,6 +259,7 @@ Status BeamSearchWhisper<T>::Execute(const FeedsFetchesManager& encoder_feeds_fe
       beam_state.EnsurePastStateReorderStagingBuffer(this->temp_space_allocator_, cross_attention_past_key_sz);
 
       if (reorder_past_state_func_.has_value()) {
+std::cout << __FILE__ ":" << __LINE__ << std::endl;
         // Here we only need to reorder the past key for self-attention and cross-attention.
         for (size_t i = 0; i < 2 * static_cast<size_t>(decoder_subgraph_.num_layers); ++i) {
           ORT_RETURN_IF_ERROR((*reorder_past_state_func_)(cuda_device_prop_,
@@ -260,6 +269,7 @@ Status BeamSearchWhisper<T>::Execute(const FeedsFetchesManager& encoder_feeds_fe
         }
       }
       if (init_cache_indir_func_.has_value()) {
+std::cout << __FILE__ ":" << __LINE__ << std::endl;
         size_t cache_indir_input_offset = static_cast<size_t>(decoder_subgraph_.GetFirstPastInputIndex()) + 4 * static_cast<size_t>(decoder_subgraph_.num_layers) + 2;
         ORT_RETURN_IF_ERROR((*init_cache_indir_func_)(*decoder_feeds[cache_indir_input_offset].GetMutable<Tensor>(), this->ort_stream_));
       }

@@ -32,7 +32,7 @@ transformers::CudaTensorConsoleDumper g_cuda_dumper_greedysearch;
 GreedySearch::GreedySearch(const OpKernelInfo& info)
     : onnxruntime::contrib::transformers::GreedySearch(info) {
 #ifdef USE_ROCM
-  SetDeviceHelpers(absl::nullopt,
+  SetDeviceHelpers(std::nullopt,
 #else
   SetDeviceHelpers(GenerationCudaDeviceHelper::ReorderPastState,
 #endif

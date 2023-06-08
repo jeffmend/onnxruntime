@@ -56,7 +56,9 @@ class BeamSearch : public IControlFlowKernel {
       const GenerationDeviceHelper::ProcessLogitsFunc<MLFloat16>& process_logits_fp16_func,
       const GenerationDeviceHelper::InitBeamStateFunc<float>& init_beam_state_func,
       const GenerationDeviceHelper::InitBeamStateFunc<MLFloat16>& init_beam_state_fp16_func) {
+std::cout << __FILE__ ":" << __LINE__ << " " << reorder_past_state_func.has_value() << std::endl;
     reorder_past_state_func_ = reorder_past_state_func;
+std::cout << __FILE__ ":" << __LINE__ << " " << init_cache_indir_func.has_value() << std::endl;
     init_cache_indir_func_ = init_cache_indir_func;
     add_to_feeds_func_ = add_to_feeds_func;
     topk_func_ = topk_func;

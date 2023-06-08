@@ -66,11 +66,13 @@ class GreedySearchGpt : public GreedySearchBase<T, ParametersT> {
         cuda_device_prop_(cuda_device_prop),
         cuda_device_arch_(cuda_device_arch) {
     if (gpt_subgraph_.has_decoder_masked_attention_) {
+#ifndef USE_ROCM
       ORT_ENFORCE(cuda_device_arch_ >= 530,
                   "Decoder masked self attention can only be used on "
                   "GPU cards of compute capability 5.3 or higher. "
                   "This card has compute capability ",
                   cuda_device_arch_);
+#endif
     }
   }
 

@@ -26,6 +26,7 @@ class MultiHeadAttention final : public RocmKernel {
   int num_heads_;  // number of attention heads
   float mask_filter_value_;
   float scale_;
+  bool past_present_share_buffer_{false};
 };
 
 template <typename T>
